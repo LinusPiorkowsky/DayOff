@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
@@ -607,12 +608,22 @@ app.get('/api/stats', authMiddleware, requireRole(['manager', 'admin']), async (
   }
 });
 
+// ======================== FRONTEND ROUTES ========================
+
 // Serve landing page at root
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'landing.html'));
+  // Check if landing.html exists, otherwise serve app
+  const landingPath = path.join(__dirname, 'public', 'landing.html');
+  const fs = require('fs');
+  if (fs.existsSync(landingPath)) {
+    res.sendFile(landingPath);
+  } else {
+    // Fallback to app if no landing page
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  }
 });
 
-// Serve app at /app or /login
+// Direct app routes
 app.get('/app', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -625,7 +636,7 @@ app.get('/register', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Serve frontend
+// Catch-all route for everything else (must be last!)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
