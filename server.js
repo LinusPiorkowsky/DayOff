@@ -610,17 +610,9 @@ app.get('/api/stats', authMiddleware, requireRole(['manager', 'admin']), async (
 
 // ======================== FRONTEND ROUTES ========================
 
-// Serve landing page at root
+// Serve landing page at root - SIMPLIFIED VERSION
 app.get('/', (req, res) => {
-  // Check if landing.html exists, otherwise serve app
-  const landingPath = path.join(__dirname, 'public', 'landing.html');
-  const fs = require('fs');
-  if (fs.existsSync(landingPath)) {
-    res.sendFile(landingPath);
-  } else {
-    // Fallback to app if no landing page
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-  }
+  res.sendFile(path.join(__dirname, 'public', 'landing.html'));
 });
 
 // Direct app routes
