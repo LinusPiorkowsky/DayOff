@@ -643,7 +643,7 @@
                     
                     <div class="calendar-container">
                         <div class="calendar-controls">
-                            <button onclick="showRequestForm()" class="btn btn-success">+ Urlaub beantragen</button>
+                            <button onclick="showRequestForm()" class="btn btn-success" id="requestVacationBtn">+ Urlaub beantragen</button>
                             <div>
                                 <span class="calendar-month" id="calendarMonth"></span>
                             </div>
@@ -970,12 +970,24 @@
             hideAllViews();
             document.getElementById('dashboardView').classList.remove('hidden');
             
+            // Show/hide request vacation button based on role
+            const requestBtn = document.getElementById('requestVacationBtn');
+            if (currentUser.role === 'admin') {
+                requestBtn.style.display = 'none';
+            } else {
+                requestBtn.style.display = 'block';
+            }
+            
             // Show appropriate info based on role
             if (currentUser.role === 'employee') {
                 document.getElementById('vacationBalance').classList.remove('hidden');
                 document.getElementById('statsGrid').classList.add('hidden');
                 updateVacationBalance();
-            } else {
+            } else if (currentUser.role === 'manager') {
+                document.getElementById('vacationBalance').classList.remove('hidden');
+                document.getElementById('statsGrid').classList.add('hidden');
+                updateVacationBalance();
+            } else { // admin
                 document.getElementById('vacationBalance').classList.add('hidden');
                 document.getElementById('statsGrid').classList.remove('hidden');
                 loadStatistics();
@@ -1058,14 +1070,24 @@
                     const dayVacations = requests.filter(req => {
                         const start = new Date(req.start_date);
                         const end = new Date(req.end_date);
+                        // Set time to midnight for accurate comparison
+                        start.setHours(0, 0, 0, 0);
+                        end.setHours(23, 59, 59, 999);
+                        currentDate.setHours(12, 0, 0, 0);
                         return currentDate >= start && currentDate <= end;
                     });
                     
                     let vacationHTML = '';
                     dayVacations.forEach(vacation => {
+                        // Show all approved vacations to everyone (team transparency)
+                        // Show pending only to managers/admins or the requester
                         if (vacation.status === 'approved' || 
-                            (vacation.status === 'pending' && (currentUser.role === 'manager' || currentUser.role === 'admin'))) {
-                            vacationHTML += `<div class="vacation-item ${vacation.status}">${vacation.user_name.split(' ')[0]}</div>`;
+                            (vacation.status === 'pending' && 
+                             (currentUser.role === 'manager' || 
+                              currentUser.role === 'admin' || 
+                              vacation.user_id === currentUser.id))) {
+                            const name = vacation.user_name ? vacation.user_name.split(' ')[0] : 'Unknown';
+                            vacationHTML += `<div class="vacation-item ${vacation.status}">${name}</div>`;
                         }
                     });
                     
@@ -1109,6 +1131,12 @@
         }
 
         async function showRequestForm() {
+            // Admins cannot request vacation
+            if (currentUser.role === 'admin') {
+                showNotification('Administratoren können keinen Urlaub beantragen.', 'info');
+                return;
+            }
+            
             hideAllViews();
             document.getElementById('requestFormView').classList.remove('hidden');
             
@@ -1163,7 +1191,7 @@
             try {
                 const requests = await apiCall('/requests');
                 
-                // My requests
+                // My requests - employees see only their own in list view
                 const myRequests = requests.filter(r => r.user_id === currentUser.id);
                 let myHTML = '<table><thead><tr><th>Von</th><th>Bis</th><th>Tage</th><th>Status</th><th>Bemerkung</th></tr></thead><tbody>';
                 
@@ -1180,9 +1208,12 @@
                 });
                 
                 myHTML += '</tbody></table>';
+                if (myRequests.length === 0) {
+                    myHTML = '<p style="text-align: center; color: #999; padding: 20px;">Keine Urlaubsanträge vorhanden</p>';
+                }
                 document.getElementById('myRequests').innerHTML = myHTML;
                 
-                // Pending requests (for managers)
+                // Pending requests (for managers and admins)
                 if (currentUser.role === 'manager' || currentUser.role === 'admin') {
                     const pendingReqs = requests.filter(r => r.status === 'pending' && r.user_id !== currentUser.id);
                     let pendingHTML = '<table><thead><tr><th>Mitarbeiter</th><th>Von</th><th>Bis</th><th>Tage</th><th>Bemerkung</th><th>Aktionen</th></tr></thead><tbody>';
@@ -1204,6 +1235,9 @@
                     });
                     
                     pendingHTML += '</tbody></table>';
+                    if (pendingReqs.length === 0) {
+                        pendingHTML = '<p style="text-align: center; color: #999; padding: 20px;">Keine offenen Anträge</p>';
+                    }
                     document.getElementById('pendingRequests').innerHTML = pendingHTML;
                     
                     // All requests
@@ -1275,26 +1309,40 @@
                 let html = '';
                 
                 users.forEach(user => {
-                    const available = user.vacation_days_total - user.vacation_days_used;
-                    html += `
-                        <tr>
-                            <td>${user.name}</td>
-                            <td>${user.email}</td>
-                            <td>${user.role}</td>
-                            <td>
-                                <input type="number" value="${user.vacation_days_total}" 
-                                       id="days-${user.id}" style="width: 60px;" 
-                                       ${currentUser.role !== 'manager' && currentUser.role !== 'admin' ? 'disabled' : ''}>
-                            </td>
-                            <td>${user.vacation_days_used}</td>
-                            <td>${available}</td>
-                            <td>
-                                ${(currentUser.role === 'manager' || currentUser.role === 'admin') && user.id !== currentUser.id ? 
-                                    `<button onclick="updateVacationDays(${user.id})" class="btn btn-primary">Speichern</button>` : 
-                                    '-'}
-                            </td>
-                        </tr>
-                    `;
+                    // Skip admins in vacation management
+                    if (user.role === 'admin') {
+                        html += `
+                            <tr>
+                                <td>${user.name}</td>
+                                <td>${user.email}</td>
+                                <td>Admin</td>
+                                <td colspan="4" style="text-align: center; color: #666;">
+                                    <em>Administratoren haben keine Urlaubstage</em>
+                                </td>
+                            </tr>
+                        `;
+                    } else {
+                        const available = user.vacation_days_total - user.vacation_days_used;
+                        html += `
+                            <tr>
+                                <td>${user.name}</td>
+                                <td>${user.email}</td>
+                                <td>${user.role}</td>
+                                <td>
+                                    <input type="number" value="${user.vacation_days_total}" 
+                                           id="days-${user.id}" style="width: 60px;" 
+                                           ${currentUser.role !== 'manager' && currentUser.role !== 'admin' ? 'disabled' : ''}>
+                                </td>
+                                <td>${user.vacation_days_used}</td>
+                                <td>${available}</td>
+                                <td>
+                                    ${(currentUser.role === 'manager' || currentUser.role === 'admin') && user.id !== currentUser.id ? 
+                                        `<button onclick="updateVacationDays(${user.id})" class="btn btn-primary">Speichern</button>` : 
+                                        '-'}
+                                </td>
+                            </tr>
+                        `;
+                    }
                 });
                 
                 document.getElementById('employeesList').innerHTML = html;
@@ -1304,7 +1352,13 @@
         }
 
         async function updateVacationDays(userId) {
-            const days = document.getElementById(`days-${userId}`).value;
+            const daysInput = document.getElementById(`days-${userId}`);
+            if (!daysInput) {
+                showNotification('Fehler: Eingabefeld nicht gefunden', 'error');
+                return;
+            }
+            
+            const days = daysInput.value;
             
             try {
                 await apiCall(`/users/${userId}/vacation-days`, {
@@ -1393,6 +1447,15 @@
                         <label>Jährliche Urlaubstage (Standard)</label>
                         <input type="number" id="vacationDays" class="form-control" value="${company.vacation_days}" min="0">
                     </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="excludeWeekends" ${company.exclude_weekends !== false ? 'checked' : ''}>
+                            Wochenenden von Urlaubstagen ausschließen
+                        </label>
+                        <small style="display: block; margin-top: 5px; color: #666;">
+                            Wenn aktiviert, werden Samstage und Sonntage nicht als Urlaubstage gezählt
+                        </small>
+                    </div>
                     <button onclick="saveCompanySettings()" class="btn btn-primary">Einstellungen speichern</button>
                 `;
                 document.getElementById('adminCompany').innerHTML = companyHTML;
@@ -1435,6 +1498,7 @@
             const name = document.getElementById('companyName').value;
             const workDays = document.getElementById('workDays').value;
             const vacationDays = document.getElementById('vacationDays').value;
+            const excludeWeekends = document.getElementById('excludeWeekends').checked;
             
             try {
                 await apiCall('/company', {
@@ -1443,7 +1507,8 @@
                         name,
                         workDays: parseInt(workDays),
                         vacationDays: parseInt(vacationDays),
-                        plan: 'free'
+                        plan: 'free',
+                        excludeWeekends
                     })
                 });
                 
