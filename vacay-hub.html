@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vacay Hub - Urlaubsverwaltung</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; line-height: 1.6; background: #f4f4f4; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .header { background: #333; color: white; padding: 1rem; margin-bottom: 20px; }
+        .header h1 { display: inline-block; }
+        .header nav { float: right; }
+        .header nav button { background: #555; color: white; border: none; padding: 8px 15px; margin-left: 10px; cursor: pointer; }
+        .header nav button:hover { background: #666; }
+        .section { background: white; padding: 20px; margin-bottom: 20px; border-radius: 5px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        button.danger { background: #dc3545; }
+        button.danger:hover { background: #c82333; }
+        button.success { background: #28a745; }
+        button.success:hover { background: #218838; }
+        button.warning { background: #ffc107; color: black; }
+        button.warning:hover { background: #e0a800; }
+        .hidden { display: none; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px; text-align: left; border: 1px solid #ddd; }
+        th { background: #f8f9fa; }
+        .status-pending { color: #ffc107; font-weight: bold; }
+        .status-approved { color: #28a745; font-weight: bold; }
+        .status-denied { color: #dc3545; font-weight: bold; }
+        .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 20px; }
+        .calendar-header { font-weight: bold; text-align: center; padding: 10px; background: #f8f9fa; }
+        .calendar-day { min-height: 80controlpx; padding: 5px; border: 1px solid #ddd; background: white; position: relative; }
+        .calendar-day-number { font-weight: bold; margin-bottom: 5px; }
+        .vacation-item { font-size: 11px; background: #007bff; color: white; padding: 2px 4px; margin: 1px 0; border-radius: 3px; }
+        .vacation-item.pending { background: #ffc107; color: black; }
+        .tabs { border-bottom: 2px solid #ddd; margin-bottom: 20px; }
+        .tab-button { background: none; border: none; padding: 10px 20px; cursor: pointer; border-bottom: 3px solid transparent; }
+        .tab-button.active { border-bottom-color: #007bff; color: #007bff; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .notification { padding: 10px; margin-bottom: 10px; border-radius: 4px; }
+        .notification.info { background: #cfe2ff; border: 1px solid #b6d4fe; }
+        .notification.success { background: #d1e7dd; border: 1px solid #badbcc; }
+        .notification.error { background: #f8d7da; border: 1px solid #f5c2c7; }
+        .user-info { background: #f8f9fa; padding: 10px; border-radius: 4px; margin-bottom: 10px; }
+        .badge { display: inline-block; padding: 3px 8px; background: #6c757d; color: white; border-radius: 3px; font-size: 12px; }
+        .badge.admin { background: #dc3545; }
+        .badge.manager { background: #ffc107; color: black; }
+        .badge.employee { background: #28a745; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Login/Register View -->
+        <div id="authView" class="container">
+            <div class="section">
+                <h2 id="authTitle">Anmeldung</h2>
+                <div id="loginForm">
+                    <div class="form-group">
+                        <label>E-Mail:</label>
+                        <input type="email" id="loginEmail" placeholder="email@beispiel.de">
+                    </div>
+                    <div class="form-group">
+                        <label>Passwort:</label>
+                        <input type="password" id="loginPassword" placeholder="Passwort">
+                    </div>
+                    <button onclick="login()">Anmelden</button>
+                    <button onclick="showRegister()" style="background: #6c757d; margin-left: 10px;">Registrieren</button>
+                    <button onclick="showPasswordReset()" style="background: transparent; color: #007bff; border: none; text-decoration: underline; margin-left: 10px;">Passwort vergessen?</button>
+                </div>
+                
+                <div id="registerForm" class="hidden">
+                    <div class="form-group">
+                        <label>Name:</label>
+                        <input type="text" id="regName" placeholder="Max Mustermann">
+                    </div>
+                    <div class="form-group">
+                        <label>E-Mail:</label>
+                        <input type="email" id="regEmail" placeholder="email@beispiel.de">
+                    </div>
+                    <div class="form-group">
+                        <label>Passwort:</label>
+                        <input type="password" id="regPassword" placeholder="Passwort">
+                    </div>
+                    <div class="form-group">
+                        <label>Firma:</label>
+                        <input type="text" id="regCompany" placeholder="Firmenname">
+                    </div>
+                    <button onclick="register()">Registrieren</button>
+                    <button onclick="showLogin()" style="background: #6c757d; margin-left: 10px;">Zurück zur Anmeldung</button>
+                </div>
+                
+                <div id="passwordResetForm" class="hidden">
+                    <div class="form-group">
+                        <label>E-Mail:</label>
+                        <input type="email" id="resetEmail" placeholder="email@beispiel.de">
+                    </div>
+                    <button onclick="resetPassword()">Passwort zurücksetzen</button>
+                    <button onclick="showLogin()" style="background: #6c757d; margin-left: 10px;">Zurück zur Anmeldung</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Application View -->
+        <div id="mainView" class="hidden">
+            <div class="header">
+                <h1>🗂 Vacay Hub</h1>
+                <nav>
+                    <span id="currentUser" style="margin-right: 20px;"></span>
+                    <button onclick="showDashboard()">Dashboard</button>
+                    <button onclick="showRequests()" id="requestsBtn">Anfragen</button>
+                    <button onclick="showAdminPanel()" id="adminBtn" class="hidden">Admin</button>
+                    <button onclick="logout()" style="background: #dc3545;">Abmelden</button>
+                </nav>
+            </div>
+            
+            <div class="container">
+                <div id="notifications"></div>
+                
+                <!-- Dashboard -->
+                <div id="dashboardView" class="section">
+                    <h2>Dashboard - Urlaubskalender</h2>
+                    <div class="user-info">
+                        <strong>Willkommen!</strong> Sie sind angemeldet als: <span id="userRole"></span>
+                    </div>
+                    
+                    <div style="margin: 20px 0;">
+                        <button onclick="showRequestForm()">🏖 Urlaub beantragen</button>
+                        <button onclick="prevMonth()" style="float: right; margin-left: 10px;">← Vorheriger Monat</button>
+                        <button onclick="nextMonth()" style="float: right;">Nächster Monat →</button>
+                    </div>
+                    
+                    <h3 id="calendarMonth"></h3>
+                    <div class="calendar">
+                        <div class="calendar-header">Mo</div>
+                        <div class="calendar-header">Di</div>
+                        <div class="calendar-header">Mi</div>
+                        <div class="calendar-header">Do</div>
+                        <div class="calendar-header">Fr</div>
+                        <div class="calendar-header">Sa</div>
+                        <div class="calendar-header">So</div>
+                        <div id="calendarDays"></div>
+                    </div>
+                </div>
+
+                <!-- Request Form -->
+                <div id="requestFormView" class="section hidden">
+                    <h2>Urlaub beantragen</h2>
+                    <div class="form-group">
+                        <label>Von:</label>
+                        <input type="date" id="startDate">
+                    </div>
+                    <div class="form-group">
+                        <label>Bis:</label>
+                        <input type="date" id="endDate">
+                    </div>
+                    <div class="form-group">
+                        <label>Bemerkung (optional):</label>
+                        <textarea id="requestNote" rows="3" placeholder="Grund für den Urlaub..."></textarea>
+                    </div>
+                    <button onclick="submitRequest()">Antrag einreichen</button>
+                    <button onclick="showDashboard()" style="background: #6c757d; margin-left: 10px;">Abbrechen</button>
+                </div>
+
+                <!-- Requests View -->
+                <div id="requestsView" class="section hidden">
+                    <h2>Urlaubsanträge</h2>
+                    
+                    <div class="tabs">
+                        <button class="tab-button active" onclick="showTab('myRequests')">Meine Anträge</button>
+                        <button class="tab-button" onclick="showTab('pendingRequests')" id="pendingTab">Offene Anträge</button>
+                        <button class="tab-button" onclick="showTab('allRequests')" id="allTab">Alle Anträge</button>
+                    </div>
+                    
+                    <div id="myRequests" class="tab-content active">
+                        <h3>Meine Urlaubsanträge</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Von</th>
+                                    <th>Bis</th>
+                                    <th>Tage</th>
+                                    <th>Status</th>
+                                    <th>Bemerkung</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="myRequestsList"></tbody>
+                        </table>
+                    </div>
+                    
+                    <div id="pendingRequests" class="tab-content">
+                        <h3>Offene Anträge (Genehmigung ausstehend)</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Mitarbeiter</th>
+                                    <th>Von</th>
+                                    <th>Bis</th>
+                                    <th>Tage</th>
+                                    <th>Bemerkung</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pendingRequestsList"></tbody>
+                        </table>
+                    </div>
+                    
+                    <div id="allRequests" class="tab-content">
+                        <h3>Alle Urlaubsanträge</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Mitarbeiter</th>
+                                    <th>Von</th>
+                                    <th>Bis</th>
+                                    <th>Tage</th>
+                                    <th>Status</th>
+                                    <th>Genehmigt von</th>
+                                </tr>
+                            </thead>
+                            <tbody id="allRequestsList"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Admin Panel -->
+                <div id="adminView" class="section hidden">
+                    <h2>Admin Panel</h2>
+                    
+                    <div class="tabs">
+                        <button class="tab-button active" onclick="showAdminTab('users')">Benutzer</button>
+                        <button class="tab-button" onclick="showAdminTab('company')">Firmeneinstellungen</button>
+                        <button class="tab-button" onclick="showAdminTab('stats')">Statistiken</button>
+                    </div>
+                    
+                    <div id="adminUsers" class="tab-content active">
+                        <h3>Benutzerverwaltung</h3>
+                        <button onclick="showInviteForm()" style="margin-bottom: 20px;">+ Benutzer einladen</button>
+                        
+                        <div id="inviteForm" class="hidden" style="background: #f8f9fa; padding: 15px; margin-bottom: 20px; border-radius: 5px;">
+                            <h4>Neuen Benutzer einladen</h4>
+                            <div class="form-group">
+                                <label>Name:</label>
+                                <input type="text" id="inviteName">
+                            </div>
+                            <div class="form-group">
+                                <label>E-Mail:</label>
+                                <input type="email" id="inviteEmail">
+                            </div>
+                            <div class="form-group">
+                                <label>Rolle:</label>
+                                <select id="inviteRole">
+                                    <option value="employee">Mitarbeiter</option>
+                                    <option value="manager">Manager</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                            </div>
+                            <button onclick="inviteUser()">Einladen</button>
+                            <button onclick="hideInviteForm()" style="background: #6c757d; margin-left: 10px;">Abbrechen</button>
+                        </div>
+                        
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>E-Mail</th>
+                                    <th>Rolle</th>
+                                    <th>Status</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersList"></tbody>
+                        </table>
+                    </div>
+                    
+                    <div id="adminCompany" class="tab-content">
+                        <h3>Firmeneinstellungen</h3>
+                        <div class="form-group">
+                            <label>Firmenname:</label>
+                            <input type="text" id="companyName">
+                        </div>
+                        <div class="form-group">
+                            <label>Arbeitstage pro Woche:</label>
+                            <input type="number" id="workDays" value="5" min="1" max="7">
+                        </div>
+                        <div class="form-group">
+                            <label>Jährliche Urlaubstage:</label>
+                            <input type="number" id="vacationDays" value="30" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Plan:</label>
+                            <select id="companyPlan">
+                                <option value="free">Kostenlos (bis 5 Mitarbeiter)</option>
+                                <option value="paid">Premium (unbegrenzte Mitarbeiter)</option>
+                            </select>
+                        </div>
+                        <button onclick="saveCompanySettings()">Einstellungen speichern</button>
+                    </div>
+                    
+                    <div id="adminStats" class="tab-content">
+                        <h3>Statistiken</h3>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 20px;">
+                            <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; text-align: center;">
+                                <h4>Mitarbeiter</h4>
+                                <p style="font-size: 2em; font-weight: bold;" id="totalEmployees">0</p>
+                            </div>
+                            <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; text-align: center;">
+                                <h4>Offene Anträge</h4>
+                                <p style="font-size: 2em; font-weight: bold;" id="pendingCount">0</p>
+                            </div>
+                            <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; text-align: center;">
+                                <h4>Genehmigte Urlaube</h4>
+                                <p style="font-size: 2em; font-weight: bold;" id="approvedCount">0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize data structure
+        let currentUser = null;
+        let currentMonth = new Date().getMonth();
+        let currentYear = new Date().getFullYear();
+
+        // Initialize localStorage if empty
+        function initializeData() {
+            if (!localStorage.getItem('users')) {
+                const defaultUsers = [
+                    {
+                        id: 1,
+                        name: 'Admin User',
+                        email: 'admin@vacayhub.de',
+                        password: 'admin123',
+                        role: 'admin',
+                        companyId: 1,
+                        active: true
+                    },
+                    {
+                        id: 2,
+                        name: 'Manager Test',
+                        email: 'manager@vacayhub.de',
+                        password: 'manager123',
+                        role: 'manager',
+                        companyId: 1,
+                        active: true
+                    },
+                    {
+                        id: 3,
+                        name: 'Employee Test',
+                        email: 'employee@vacayhub.de',
+                        password: 'employee123',
+                        role: 'employee',
+                        companyId: 1,
+                        active: true
+                    }
+                ];
+                localStorage.setItem('users', JSON.stringify(defaultUsers));
+            }
+
+            if (!localStorage.getItem('companies')) {
+                const defaultCompany = {
+                    id: 1,
+                    name: 'Demo Company',
+                    plan: 'free',
+                    workDays: 5,
+                    vacationDays: 30
+                };
+                localStorage.setItem('companies', JSON.stringify([defaultCompany]));
+            }
+
+            if (!localStorage.getItem('vacationRequests')) {
+                localStorage.setItem('vacationRequests', JSON.stringify([]));
+            }
+
+            if (!localStorage.getItem('notifications')) {
+                localStorage.setItem('notifications', JSON.stringify([]));
+            }
+        }
+
+        // Authentication functions
+        function showLogin() {
+            document.getElementById('loginForm').classList.remove('hidden');
+            document.getElementById('registerForm').classList.add('hidden');
+            document.getElementById('passwordResetForm').classList.add('hidden');
+            document.getElementById('authTitle').textContent = 'Anmeldung';
+        }
+
+        function showRegister() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('registerForm').classList.remove('hidden');
+            document.getElementById('passwordResetForm').classList.add('hidden');
+            document.getElementById('authTitle').textContent = 'Registrierung';
+        }
+
+        function showPasswordReset() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('registerForm').classList.add('hidden');
+            document.getElementById('passwordResetForm').classList.remove('hidden');
+            document.getElementById('authTitle').textContent = 'Passwort zurücksetzen';
+        }
+
+        function login() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            const user = users.find(u => u.email === email && u.password === password && u.active);
+            
+            if (user) {
+                currentUser = user;
+                localStorage.setItem('currentUser', JSON.stringify(user));
+                showMainView();
+                showNotification('Erfolgreich angemeldet!', 'success');
+            } else {
+                showNotification('Ungültige Anmeldedaten!', 'error');
+            }
+        }
+
+        function register() {
+            const name = document.getElementById('regName').value;
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            const companyName = document.getElementById('regCompany').value;
+            
+            if (!name || !email || !password || !companyName) {
+                showNotification('Bitte alle Felder ausfüllen!', 'error');
+                return;
+            }
+            
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            const companies = JSON.parse(localStorage.getItem('companies') || '[]');
+            
+            // Check if user exists
+            if (users.find(u => u.email === email)) {
+                showNotification('E-Mail bereits registriert!', 'error');
+                return;
+            }
+            
+            // Create or find company
+            let companyId = companies.length > 0 ? companies[0].id : 1;
+            if (companyName && companyName !== 'Demo Company') {
+                const newCompany = {
+                    id: companies.length + 1,
+                    name: companyName,
+                    plan: 'free',
+                    workDays: 5,
+                    vacationDays: 30
+                };
+                companies.push(newCompany);
+                companyId = newCompany.id;
+                localStorage.setItem('companies', JSON.stringify(companies));
+            }
+            
+            // Create user
+            const newUser = {
+                id: users.length + 1,
+                name: name,
+                email: email,
+                password: password,
+                role: users.filter(u => u.companyId === companyId).length === 0 ? 'admin' : 'employee',
+                companyId: companyId,
+                active: true
+            };
+            
+            users.push(newUser);
+            localStorage.setItem('users', JSON.stringify(users));
+            
+            showNotification('Registrierung erfolgreich! Sie können sich jetzt anmelden.', 'success');
+            showLogin();
+        }
+
+        function resetPassword() {
+            const email = document.getElementById('resetEmail').value;
+            
+            if (!email) {
+                showNotification('Bitte E-Mail eingeben!', 'error');
+                return;
+            }
+            
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            const user = users.find(u => u.email === email);
+            
+            if (user) {
+                // In real app, send email
+                showNotification('Passwort-Reset-Link wurde an Ihre E-Mail gesendet!', 'success');
+                showLogin();
+            } else {
+                showNotification('E-Mail nicht gefunden!', 'error');
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            localStorage.removeItem('currentUser');
+            document.getElementById('authView').classList.remove('hidden');
+            document.getElementById('mainView').classList.add('hidden');
+            showNotification('Erfolgreich abgemeldet!', 'info');
+        }
+
+        // Main view functions
+        function showMainView() {
+            document.getElementById('authView').classList.add('hidden');
+            document.getElementById('mainView').classList.remove('hidden');
+            
+            // Update user info
+            document.getElementById('currentUser').textContent = `${currentUser.name} (${currentUser.email})`;
+            document.getElementById('userRole').innerHTML = `<span class="badge ${currentUser.role}">${currentUser.role.toUpperCase()}</span>`;
+            
+            // Show/hide admin button
+            if (currentUser.role === 'admin') {
+                document.getElementById('adminBtn').classList.remove('hidden');
+            }
+            
+            // Show/hide manager tabs
+            if (currentUser.role === 'manager' || currentUser.role === 'admin') {
+                document.getElementById('pendingTab').style.display = 'inline-block';
+                document.getElementById('allTab').style.display = 'inline-block';
+            } else {
+                document.getElementById('pendingTab').style.display = 'none';
+                document.getElementById('allTab').style.display = 'none';
+            }
+            
+            showDashboard();
+            loadNotifications();
+        }
+
+        function showDashboard() {
+            hideAllViews();
+            document.getElementById('dashboardView').classList.remove('hidden');
+            renderCalendar();
+        }
+
+        function showRequestForm() {
+            hideAllViews();
+            document.getElementById('requestFormView').classList.remove('hidden');
+            
+            // Set default dates
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            
+            document.getElementById('startDate').valueAsDate = today;
+            document.getElementById('endDate').valueAsDate = tomorrow;
+        }
+
+        function showRequests() {
+            hideAllViews();
+            document.getElementById('requestsView').classList.remove('hidden');
+            loadRequests();
+        }
+
+        function showAdminPanel() {
+            if (currentUser.role !== 'admin') {
+                showNotification('Keine Berechtigung!', 'error');
+                return;
+            }
+            hideAllViews();
+            document.getElementById('adminView').classList.remove('hidden');
+            loadAdminData();
+        }
+
+        function hideAllViews() {
+            document.getElementById('dashboardView').classList.add('hidden');
+            document.getElementById('requestFormView').classList.add('hidden');
+            document.getElementById('requestsView').classList.add('hidden');
+            document.getElementById('adminView').classList.add('hidden');
+        }
+
+        // Calendar functions
+        function renderCalendar() {
+            const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 
+                              'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+            
+            document.getElementById('calendarMonth').textContent = `${monthNames[currentMonth]} ${currentYear}`;
+            
+            const firstDay = new Date(currentYear, currentMonth, 1);
+            const lastDay = new Date(currentYear, currentMonth + 1, 0);
+            const prevLastDay = new Date(currentYear, currentMonth, 0);
+            
+            const firstDayIndex = firstDay.getDay() || 7; // Convert Sunday (0) to 7
+            const lastDayDate = lastDay.getDate();
+            const prevLastDayDate = prevLastDay.getDate();
+            
+            let html = '';
+            
+            // Previous month days
+            for (let i = firstDayIndex - 1; i > 0; i--) {
+                html += `<div class="calendar-day" style="opacity: 0.3;">
+                    <div class="calendar-day-number">${prevLastDayDate - i + 1}</div>
+                </div>`;
+            }
+            
+            // Current month days
+            const requests = JSON.parse(localStorage.getItem('vacationRequests') || '[]');
+            
+            for (let day = 1; day <= lastDayDate; day++) {
+                const currentDate = new Date(currentYear, currentMonth, day);
+                const dateStr = currentDate.toISOString().split('T')[0];
+                
+                // Find vacations for this day
+                const dayVacations = requests.filter(req => {
+                    const start = new Date(req.startDate);
+                    const end = new Date(req.endDate);
+                    return currentDate >= start && currentDate <= end;
+                });
+                
+                let vacationHtml = '';
+                dayVacations.forEach(vacation => {
+                    const user = getUserById(vacation.userId);
+                    if (user) {
+                        const statusClass = vacation.status === 'pending' ? 'pending' : '';
+                        if (vacation.status === 'approved' || (vacation.status === 'pending' && (currentUser.role === 'manager' || currentUser.role === 'admin'))) {
+                            vacationHtml += `<div class="vacation-item ${statusClass}">${user.name.split(' ')[0]}</div>`;
+                        }
+                    }
+                });
+                
+                html += `<div class="calendar-day">
+                    <div class="calendar-day-number">${day}</div>
+                    ${vacationHtml}
+                </div>`;
+            }
+            
+            // Next month days
+            const remainingDays = 42 - (firstDayIndex - 1 + lastDayDate); // 6 weeks * 7 days
+            for (let day = 1; day <= remainingDays; day++) {
+                html += `<div class="calendar-day" style="opacity: 0.3;">
+                    <div class="calendar-day-number">${day}</div>
+                </div>`;
+            }
+            
+            document.getElementById('calendarDays').innerHTML = html;
+        }
+
+        function prevMonth() {
+            currentMonth--;
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            }
+            renderCalendar();
+        }
+
+        function nextMonth() {
+            currentMonth++;
+            if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
+            renderCalendar();
+        }
+
+        // Request functions
+        function submitRequest() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const note = document.getElementById('requestNote').value;
+            
+            if (!startDate || !endDate) {
+                showNotification('Bitte Start- und Enddatum wählen!', 'error');
+                return;
+            }
+            
+            if (new Date(startDate) > new Date(endDate)) {
+                showNotification('Enddatum muss nach Startdatum liegen!', 'error');
+                return;
+            }
+            
+            const requests = JSON.parse(localStorage.getItem('vacationRequests') || '[]');
+            
+            const newRequest = {
+                id: requests.length + 1,
+                userId: currentUser.id,
+                startDate: startDate,
+                endDate: endDate,
+                status: 'pending',
+                note: note,
+                createdAt: new Date().toISOString(),
+                managerId: null
+            };
+            
+            requests.push(newRequest);
+            localStorage.setItem('vacationRequests', JSON.stringify(requests));
+            
+            // Create notification for managers
+            createNotification('manager', `Neuer Urlaubsantrag von ${currentUser.name}`);
+            
+            showNotification('Urlaubsantrag erfolgreich eingereicht!', 'success');
+            showDashboard();
+        }
+
+        function loadRequests() {
+            const requests = JSON.parse(localStorage.getItem('vacationRequests') || '[]');
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            
+            // My requests
+            const myRequests = requests.filter(r => r.userId === currentUser.id);
+            let myHtml = '';
+            myRequests.forEach(req => {
+                const days = calculateDays(req.startDate, req.endDate);
+                myHtml += `
+                    <tr>
+                        <td>${formatDate(req.startDate)}</td>
+                        <td>${formatDate(req.endDate)}</td>
+                        <td>${days}</td>
+                        <td><span class="status-${req.status}">${req.status.toUpperCase()}</span></td>
+                        <td>${req.note || '-'}</td>
+                        <td>
+                            ${req.status === 'pending' ? `<button onclick="cancelRequest(${req.id})" class="danger">Stornieren</button>` : '-'}
+                        </td>
+                    </tr>
+                `;
+            });
+            document.getElementById('myRequestsList').innerHTML = myHtml || '<tr><td colspan="6">Keine Anträge vorhanden</td></tr>';
+            
+            // Pending requests (for managers)
+            if (currentUser.role === 'manager' || currentUser.role === 'admin') {
+                const pendingReqs = requests.filter(r => r.status === 'pending' && r.userId !== currentUser.id);
+                let pendingHtml = '';
+                pendingReqs.forEach(req => {
+                    const user = getUserById(req.userId);
+                    const days = calculateDays(req.startDate, req.endDate);
+                    pendingHtml += `
+                        <tr>
+                            <td>${user ? user.name : 'Unbekannt'}</td>
+                            <td>${formatDate(req.startDate)}</td>
+                            <td>${formatDate(req.endDate)}</td>
+                            <td>${days}</td>
+                            <td>${req.note || '-'}</td>
+                            <td>
+                                <button onclick="approveRequest(${req.id})" class="success">Genehmigen</button>
+                                <button onclick="denyRequest(${req.id})" class="danger" style="margin-left: 5px;">Ablehnen</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('pendingRequestsList').innerHTML = pendingHtml || '<tr><td colspan="6">Keine offenen Anträge</td></tr>';
+                
+                // All requests
+                let allHtml = '';
+                requests.forEach(req => {
+                    const user = getUserById(req.userId);
+                    const manager = req.managerId ? getUserById(req.managerId) : null;
+                    const days = calculateDays(req.startDate, req.endDate);
+                    allHtml += `
+                        <tr>
+                            <td>${user ? user.name : 'Unbekannt'}</td>
+                            <td>${formatDate(req.startDate)}</td>
+                            <td>${formatDate(req.endDate)}</td>
+                            <td>${days}</td>
+                            <td><span class="status-${req.status}">${req.status.toUpperCase()}</span></td>
+                            <td>${manager ? manager.name : '-'}</td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('allRequestsList').innerHTML = allHtml || '<tr><td colspan="6">Keine Anträge vorhanden</td></tr>';
+            }
+        }
+
+        function approveRequest(requestId) {
+            const requests = JSON.parse(localStorage.getItem('vacationRequests') || '[]');
+            const request = requests.find(r => r.id === requestId);
+            
+            if (request) {
+                request.status = 'approved';
+                request.managerId = currentUser.id;
+                request.approvedAt = new Date().toISOString();
+                
+                localStorage.setItem('vacationRequests', JSON.stringify(requests));
+                
+                // Create notification for employee
+                const user = getUserById(request.userId);
+                createNotification(request.userId, `Ihr Urlaubsantrag wurde genehmigt!`);
+                
+                showNotification('Antrag genehmigt!', 'success');
+                loadRequests();
+            }
+        }
+
+        function denyRequest(requestId) {
+            const requests = JSON.parse(localStorage.getItem('vacationRequests') || '[]');
+            const request = requests.find(r => r.id === requestId);
+            
+            if (request) {
+                request.status = 'denied';
+                request.managerId = currentUser.id;
+                request.deniedAt = new Date().toISOString();
+                
+                localStorage.setItem('vacationRequests', JSON.stringify(requests));
+                
+                // Create notification for employee
+                createNotification(request.userId, `Ihr Urlaubsantrag wurde abgelehnt.`);
+                
+                showNotification('Antrag abgelehnt!', 'info');
+                loadRequests();
+            }
+        }
+
+        function cancelRequest(requestId) {
+            if (!confirm('Möchten Sie diesen Antrag wirklich stornieren?')) return;
+            
+            const requests = JSON.parse(localStorage.getItem('vacationRequests') || '[]');
+            const index = requests.findIndex(r => r.id === requestId);
+            
+            if (index !== -1) {
+                requests.splice(index, 1);
+                localStorage.setItem('vacationRequests', JSON.stringify(requests));
+                showNotification('Antrag storniert!', 'success');
+                loadRequests();
+            }
+        }
+
+        // Admin functions
+        function loadAdminData() {
+            // Load users
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            const companyUsers = users.filter(u => u.companyId === currentUser.companyId);
+            
+            let usersHtml = '';
+            companyUsers.forEach(user => {
+                const roleColor = user.role === 'admin' ? 'admin' : user.role === 'manager' ? 'manager' : 'employee';
+                usersHtml += `
+                    <tr>
+                        <td>${user.name}</td>
+                        <td>${user.email}</td>
+                        <td><span class="badge ${roleColor}">${user.role.toUpperCase()}</span></td>
+                        <td>${user.active ? 'Aktiv' : 'Inaktiv'}</td>
+                        <td>
+                            ${user.id !== currentUser.id ? `
+                                <select onchange="changeUserRole(${user.id}, this.value)" style="width: auto; display: inline-block;">
+                                    <option value="employee" ${user.role === 'employee' ? 'selected' : ''}>Mitarbeiter</option>
+                                    <option value="manager" ${user.role === 'manager' ? 'selected' : ''}>Manager</option>
+                                    <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
+                                </select>
+                                <button onclick="toggleUserStatus(${user.id})" class="${user.active ? 'danger' : 'success'}" style="margin-left: 5px;">
+                                    ${user.active ? 'Deaktivieren' : 'Aktivieren'}
+                                </button>
+                            ` : '-'}
+                        </td>
+                    </tr>
+                `;
+            });
+            document.getElementById('usersList').innerHTML = usersHtml;
+            
+            // Load company settings
+            const companies = JSON.parse(localStorage.getItem('companies') || '[]');
+            const company = companies.find(c => c.id === currentUser.companyId);
+            
+            if (company) {
+                document.getElementById('companyName').value = company.name;
+                document.getElementById('workDays').value = company.workDays || 5;
+                document.getElementById('vacationDays').value = company.vacationDays || 30;
+                document.getElementById('companyPlan').value = company.plan || 'free';
+            }
+            
+            // Load statistics
+            updateStatistics();
+        }
+
+        function updateStatistics() {
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            const requests = JSON.parse(localStorage.getItem('vacationRequests') || '[]');
+            
+            const companyUsers = users.filter(u => u.companyId === currentUser.companyId && u.active);
+            const companyRequests = requests.filter(r => {
+                const user = getUserById(r.userId);
+                return user && user.companyId === currentUser.companyId;
+            });
+            
+            document.getElementById('totalEmployees').textContent = companyUsers.length;
+            document.getElementById('pendingCount').textContent = companyRequests.filter(r => r.status === 'pending').length;
+            document.getElementById('approvedCount').textContent = companyRequests.filter(r => r.status === 'approved').length;
+        }
+
+        function changeUserRole(userId, newRole) {
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            const user = users.find(u => u.id === userId);
+            
+            if (user) {
+                user.role = newRole;
+                localStorage.setItem('users', JSON.stringify(users));
+                showNotification(`Rolle geändert zu ${newRole}!`, 'success');
+                loadAdminData();
+            }
+        }
+
+        function toggleUserStatus(userId) {
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            const user = users.find(u => u.id === userId);
+            
+            if (user) {
+                user.active = !user.active;
+                localStorage.setItem('users', JSON.stringify(users));
+                showNotification(`Benutzer ${user.active ? 'aktiviert' : 'deaktiviert'}!`, 'success');
+                loadAdminData();
+            }
+        }
+
+        function showInviteForm() {
+            document.getElementById('inviteForm').classList.remove('hidden');
+        }
+
+        function hideInviteForm() {
+            document.getElementById('inviteForm').classList.add('hidden');
+            document.getElementById('inviteName').value = '';
+            document.getElementById('inviteEmail').value = '';
+            document.getElementById('inviteRole').value = 'employee';
+        }
+
+        function inviteUser() {
+            const name = document.getElementById('inviteName').value;
+            const email = document.getElementById('inviteEmail').value;
+            const role = document.getElementById('inviteRole').value;
+            
+            if (!name || !email) {
+                showNotification('Bitte alle Felder ausfüllen!', 'error');
+                return;
+            }
+            
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            
+            if (users.find(u => u.email === email)) {
+                showNotification('E-Mail bereits vorhanden!', 'error');
+                return;
+            }
+            
+            const newUser = {
+                id: users.length + 1,
+                name: name,
+                email: email,
+                password: 'welcome123', // Default password
+                role: role,
+                companyId: currentUser.companyId,
+                active: true
+            };
+            
+            users.push(newUser);
+            localStorage.setItem('users', JSON.stringify(users));
+            
+            showNotification(`Benutzer ${name} erfolgreich eingeladen! (Passwort: welcome123)`, 'success');
+            hideInviteForm();
+            loadAdminData();
+        }
+
+        function saveCompanySettings() {
+            const companies = JSON.parse(localStorage.getItem('companies') || '[]');
+            const company = companies.find(c => c.id === currentUser.companyId);
+            
+            if (company) {
+                company.name = document.getElementById('companyName').value;
+                company.workDays = parseInt(document.getElementById('workDays').value);
+                company.vacationDays = parseInt(document.getElementById('vacationDays').value);
+                company.plan = document.getElementById('companyPlan').value;
+                
+                localStorage.setItem('companies', JSON.stringify(companies));
+                showNotification('Einstellungen gespeichert!', 'success');
+            }
+        }
+
+        // Tab functions
+        function showTab(tabName) {
+            document.querySelectorAll('#requestsView .tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('#requestsView .tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function showAdminTab(tabName) {
+            document.querySelectorAll('#adminView .tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('#adminView .tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            document.getElementById('admin' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // Helper functions
+        function getUserById(userId) {
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            return users.find(u => u.id === userId);
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('de-DE');
+        }
+
+        function calculateDays(startDate, endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const diffTime = Math.abs(end - start);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            return diffDays;
+        }
+
+        function showNotification(message, type = 'info') {
+            const notificationDiv = document.getElementById('notifications');
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            
+            notificationDiv.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 5000);
+        }
+
+        function createNotification(targetRole, message) {
+            const notifications = JSON.parse(localStorage.getItem('notifications') || '[]');
+            notifications.push({
+                id: notifications.length + 1,
+                target: targetRole,
+                message: message,
+                createdAt: new Date().toISOString(),
+                read: false
+            });
+            localStorage.setItem('notifications', JSON.stringify(notifications));
+        }
+
+        function loadNotifications() {
+            const notifications = JSON.parse(localStorage.getItem('notifications') || '[]');
+            const myNotifications = notifications.filter(n => {
+                if (typeof n.target === 'number') {
+                    return n.target === currentUser.id;
+                }
+                return n.target === currentUser.role;
+            }).filter(n => !n.read);
+            
+            myNotifications.forEach(notification => {
+                showNotification(notification.message, 'info');
+                notification.read = true;
+            });
+            
+            localStorage.setItem('notifications', JSON.stringify(notifications));
+        }
+
+        // Initialize app
+        initializeData();
+
+        // Check for saved session
+        const savedUser = localStorage.getItem('currentUser');
+        if (savedUser) {
+            currentUser = JSON.parse(savedUser);
+            showMainView();
+        }
+
+        // Demo login info
+        console.log('Demo Logins:');
+        console.log('Admin: admin@vacayhub.de / admin123');
+        console.log('Manager: manager@vacayhub.de / manager123');
+        console.log('Employee: employee@vacayhub.de / employee123');
+    </script>
+</body>
+</html>
