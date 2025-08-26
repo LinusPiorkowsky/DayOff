@@ -48,6 +48,14 @@ async function initDB() {
       )
     `);
 
+    // Auto-migration: Add exclude_weekends column if it doesn't exist
+    await pool.query(`
+      ALTER TABLE companies 
+      ADD COLUMN IF NOT EXISTS exclude_weekends BOOLEAN DEFAULT true
+    `).catch(() => {
+      // Column already exists, ignore error
+    });
+
     // Create users table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
