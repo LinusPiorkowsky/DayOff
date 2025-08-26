@@ -12,9 +12,16 @@ const PORT = process.env.PORT || 3000;
 
 // Database connection
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://user:password@localhost/vacayhub',
+  connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
+
+// Check if DATABASE_URL exists
+if (!process.env.DATABASE_URL) {
+  console.error('ERROR: DATABASE_URL is not set!');
+  console.log('Available env vars:', Object.keys(process.env));
+  process.exit(1);
+}
 
 // Middleware
 app.use(cors());
@@ -36,6 +43,7 @@ async function initDB() {
         plan VARCHAR(50) DEFAULT 'free',
         work_days INTEGER DEFAULT 5,
         vacation_days INTEGER DEFAULT 30,
+        exclude_weekends BOOLEAN DEFAULT true,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -117,6 +125,25 @@ function requireRole(roles) {
     }
     next();
   };
+}
+
+// Helper function to calculate working days (excluding weekends if configured)
+function calculateWorkingDays(startDate, endDate, excludeWeekends = true) {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  let count = 0;
+  
+  const current = new Date(start);
+  while (current <= end) {
+    const dayOfWeek = current.getDay();
+    // 0 = Sunday, 6 = Saturday
+    if (!excludeWeekends || (dayOfWeek !== 0 && dayOfWeek !== 6)) {
+      count++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  
+  return count;
 }
 
 // ======================== AUTH ROUTES ========================
@@ -255,7 +282,7 @@ app.post('/api/auth/login', async (req, res) => {
 
 // ======================== VACATION REQUESTS ========================
 
-// Get all vacation requests for company
+// Get all vacation requests for company (all employees can see all requests in calendar)
 app.get('/api/requests', authMiddleware, async (req, res) => {
   try {
     let query = `
@@ -272,11 +299,8 @@ app.get('/api/requests', authMiddleware, async (req, res) => {
     
     const params = [req.companyId];
     
-    // If employee, only show their own requests
-    if (req.userRole === 'employee') {
-      query += ' AND vr.user_id = $2';
-      params.push(req.userId);
-    }
+    // Everyone can see all requests for calendar view
+    // But in the requests list, employees only see their own
     
     query += ' ORDER BY vr.created_at DESC';
     
@@ -293,10 +317,23 @@ app.post('/api/requests', authMiddleware, async (req, res) => {
   const { startDate, endDate, note } = req.body;
 
   try {
-    // Calculate days
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const daysCount = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+    // Admins don't have vacation days
+    if (req.userRole === 'admin') {
+      return res.status(400).json({ 
+        error: 'Administratoren können keinen Urlaub beantragen.' 
+      });
+    }
+
+    // Get company settings to check if weekends should be excluded
+    const companyResult = await pool.query(
+      'SELECT exclude_weekends FROM companies WHERE id = $1',
+      [req.companyId]
+    );
+    
+    const excludeWeekends = companyResult.rows[0]?.exclude_weekends ?? true;
+    
+    // Calculate days (excluding weekends if configured)
+    const daysCount = calculateWorkingDays(startDate, endDate, excludeWeekends);
 
     // Check available vacation days
     const userResult = await pool.query(
@@ -309,7 +346,7 @@ app.post('/api/requests', authMiddleware, async (req, res) => {
     
     if (daysCount > availableDays) {
       return res.status(400).json({ 
-        error: `Nicht genügend Urlaubstage. Verfügbar: ${availableDays}, Angefordert: ${daysCount}` 
+        error: `Nicht genügend Urlaubstage. Verfügbar: ${availableDays}, Angefordert: ${daysCount} ${excludeWeekends ? '(ohne Wochenenden)' : ''}` 
       });
     }
 
@@ -394,15 +431,25 @@ app.get('/api/users', authMiddleware, requireRole(['manager', 'admin']), async (
   }
 });
 
-// Update user vacation days (Manager/Admin only)
+// Update user vacation days (Manager/Admin only, but not for admin users)
 app.put('/api/users/:id/vacation-days', authMiddleware, requireRole(['manager', 'admin']), async (req, res) => {
   const { id } = req.params;
   const { vacationDaysTotal } = req.body;
 
   try {
+    // Check if target user is admin
+    const userResult = await pool.query(
+      'SELECT role FROM users WHERE id = $1 AND company_id = $2',
+      [id, req.companyId]
+    );
+    
+    if (userResult.rows.length > 0 && userResult.rows[0].role === 'admin') {
+      return res.status(400).json({ error: 'Administratoren haben keine Urlaubstage' });
+    }
+    
     await pool.query(
-      'UPDATE users SET vacation_days_total = $1 WHERE id = $2 AND company_id = $3',
-      [vacationDaysTotal, id, req.companyId]
+      'UPDATE users SET vacation_days_total = $1 WHERE id = $2 AND company_id = $3 AND role != $4',
+      [vacationDaysTotal, id, req.companyId, 'admin']
     );
 
     // Notify user
@@ -469,12 +516,12 @@ app.get('/api/company', authMiddleware, async (req, res) => {
 
 // Update company settings
 app.put('/api/company', authMiddleware, requireRole(['admin']), async (req, res) => {
-  const { name, workDays, vacationDays, plan } = req.body;
+  const { name, workDays, vacationDays, plan, excludeWeekends } = req.body;
 
   try {
     await pool.query(
-      'UPDATE companies SET name = $1, work_days = $2, vacation_days = $3, plan = $4 WHERE id = $5',
-      [name, workDays, vacationDays, plan, req.companyId]
+      'UPDATE companies SET name = $1, work_days = $2, vacation_days = $3, plan = $4, exclude_weekends = $5 WHERE id = $6',
+      [name, workDays, vacationDays, plan, excludeWeekends ?? true, req.companyId]
     );
     res.json({ success: true });
   } catch (err) {
