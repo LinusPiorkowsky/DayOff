@@ -610,9 +610,11 @@ app.get('/api/stats', authMiddleware, requireRole(['manager', 'admin']), async (
 
 // ======================== FRONTEND ROUTES ========================
 
-// Serve landing page at root - SIMPLIFIED VERSION
+// ALWAYS serve landing page at root - no fallback!
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'landing.html'));
+  const landingPath = path.join(__dirname, 'public', 'landing.html');
+  console.log('Serving landing page from:', landingPath);
+  res.sendFile(landingPath);
 });
 
 // Direct app routes
