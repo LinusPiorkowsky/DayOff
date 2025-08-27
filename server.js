@@ -27,7 +27,7 @@ if (!process.env.DATABASE_URL) {
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+// MOVED express.static AFTER our routes to prevent conflicts!
 
 // JWT Secret
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -610,11 +610,10 @@ app.get('/api/stats', authMiddleware, requireRole(['manager', 'admin']), async (
 
 // ======================== FRONTEND ROUTES ========================
 
-// ALWAYS serve landing page at root - no fallback!
+// MUST BE BEFORE express.static!
+// FORCE serve landing page at root
 app.get('/', (req, res) => {
-  const landingPath = path.join(__dirname, 'public', 'landing.html');
-  console.log('Serving landing page from:', landingPath);
-  res.sendFile(landingPath);
+  res.sendFile(path.join(__dirname, 'public', 'landing.html'));
 });
 
 // Direct app routes
@@ -629,6 +628,9 @@ app.get('/login', (req, res) => {
 app.get('/register', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+// NOW add static files AFTER our custom routes
+app.use(express.static('public'));
 
 // Catch-all route for everything else (must be last!)
 app.get('*', (req, res) => {
